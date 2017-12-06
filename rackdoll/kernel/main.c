@@ -40,7 +40,7 @@ void main_multiboot2(void *mb2)
 	fake.pgt = store_cr3();
 	new = alloc_page();
 	map_page(&fake, 0x201000, new);*/
-	print_pgt(store_cr3(),4);
+	//print_pgt(store_cr3(),4);
 	/* Ending */
 
 

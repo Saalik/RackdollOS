@@ -12,6 +12,8 @@
 #define PAGESIZE 4096
 #define PAGE_SIZE PAGESIZE
 #define PAGE_MASK ADDRMASK
+#define STACKSTART 0x2000000000
+#define STACKEND 0x40000000
 
 extern __attribute__((noreturn)) void die(void);
 
@@ -150,44 +152,8 @@ void load_task(struct task *ctx)
 }
 
 
- /* code nicolas 
-void load_task(struct task *ctx)
-{
 
-	//old kernel addr
-	uint64_t *ptr;
-	uint64_t mask_valid = 0x0000000000000027;
-	ptr = (uint64_t*) store_cr3();
-	ptr = *ptr & 0x000FFFFFFFFFF000;
-
-	//New page table, mapping kernel
-	paddr_t pml4 = alloc_page();
-	paddr_t pml3 = alloc_page();
-	printk("NewPML4 at %p\n", pml4);
-	printk("NewPML3 at %p\n", pml3);
-	memcpy((paddr_t*)pml3, ptr, 8);
-	pml3 |= mask_valid;
-	memcpy((paddr_t*)pml4, &pml3, 8);
-	ctx->pgt = pml4;
-
-	int i;
-	//Mapping code
-
-	for(i = 0; i+ctx->load_paddr < ctx->load_end_paddr; i+=4096)
-	{
-		map_page(ctx, ctx->load_vaddr + i, ctx->load_paddr + i);
-	}
-
-	for(; i + ctx->load_vaddr < ctx->bss_end_vaddr; i+= 4096){
-		paddr_t temp = alloc_page();
-		memset(temp,0,4096);
-		map_page(ctx,ctx->load_vaddr+i,temp);
-	}
-}
- */
-
-
- /* Code de Vincent
+/* Code de Vincent
 void load_task(struct task *ctx)
 {
         uint64_t i;
@@ -227,11 +193,11 @@ void munmap(struct task *ctx, vaddr_t vaddr)
 
 void pgfault(struct interrupt_context *ctx)
 {
-	
-	
-	printk("Page fault at %p\n", ctx->rip);
-	printk("  cr2 = %p\n", store_cr2());
-	asm volatile ("hlt");
+	uint64_t pgt = store_cr3();
+	if((store_cr2 < STACKSTART) && (store_cr2 > STACKEND))
+		map_page((struct task *) &pgt, store_cr2(), alloc_page());
+	else
+		exit_task(ctx);
 }
 
 void duplicate_task(struct task *ctx)
